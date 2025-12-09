@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Floating-point unit test</title>
+    <style>
+        /*  */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px; 
+            background-color: #333333; /*  */
+            color: #dddddd; /*  */
+        }
+        h3 { 
+            color: #e74c3c; /* */
+            border-bottom: 2px solid #e74c3c; 
+            padding-bottom: 5px; 
+        }
+        
+        /*  */
+        #output { 
+            background-color: #cccccc; /*  */
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5); 
+            padding: 20px; 
+            margin-top: 20px; 
+            color: #333333; /*  */
+        }
+        .test-result-list { margin-bottom: 15px; max-height: 250px; overflow-y: auto; padding-right: 10px; }
+        .test-result-list p { margin: 2px 0; font-size: 0.9em; }
+        
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; font-size: 0.9em; }
+        th, td { border: 1px solid #e0e0e0; padding: 10px; text-align: left; }
+        th { background-color: #b0b0b0; color: #333; font-weight: 600; } 
+        td { color: #333; }
+        
+        .cv-value { font-size: 1.4em; font-weight: bold; margin-right: 10px; }
+        .evaluation-box { 
+            padding: 10px; 
+            border-radius: 6px; 
+            margin-top: 15px; 
+            border-left: 5px solid; 
+        }
+
+        .success { color: #2ecc71; border-color: #2ecc71; background-color: #e8f8f2; }
+        .warning { color: #f39c12; border-color: #f39c12; background-color: #fcf4e3; }
+        .critical { color: #e74c3c; border-color: #e74c3c; background-color: #fbecec; }
+
+        .summary-details { margin-top: 15px; border-top: 1px dashed #777; padding-top: 10px; }
+        
+        #startButton {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<h3>Floating-point unit test</h3>
+<p>Нажмите Start Test для запуска.</p>
+<button id="startButton" onclick="startJitterTest(20)">▶️ Start Test</button>
+
+<div id="output" class="result-box">
+    Ожидание запуска...
+</div>
+
+<script>
+const OPERATIONS = 5000000; 
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function startJitterTest(iterations = 20) {
+    const output = document.getElementById('output');
+    const startButton = document.getElementById('startButton');
+    
+    startButton.disabled = true;
+    output.innerHTML = '<h4>Идет выполнение тестов... (Пожалуйста, подождите)</h4><div class="test-result-list"></div>';
+    
+    const resultListDiv = output.querySelector('.test-result-list');
+    const results = [];
+    
+    for(let iter = 0; iter < iterations; iter++) {
+        const t0 = performance.now();
+        
+        let r1 = 0, r2 = 0, r3 = 0, r4 = 0;
+        for(let i = 0; i < OPERATIONS; i++) {
+            const x = i * 0.001;
+            r1 += Math.sin(x) * Math.cos(x);
+            r2 += Math.tan(x * 0.1) * Math.atan(x);
+            r3 += Math.exp(x * 0.01) * Math.log(Math.abs(x) + 1);
+            r4 += Math.sqrt(i + 1) * Math.cbrt(i + 1);
+        }
+        
+        const t1 = performance.now();
+        const duration = t1 - t0;
+        
+        results.push(duration);
+        resultListDiv.innerHTML += `<p>Тест ${iter + 1}: <b>${duration.toFixed(1)} мс</b></p>`;
+        
+        // 
+        resultListDiv.scrollTop = resultListDiv.scrollHeight; 
+        
+        if(iter < iterations - 1) {
+            const sleepTime = 100 + Math.random() * 400; 
+            await sleep(sleepTime);
+        }
+    }
+    
+    analyzeResults(results);
+    startButton.disabled = false;
+}
+
+function analyzeResults(times) {
+    const output = document.getElementById('output');
+    
+    const avg = times.reduce((a,b) => a+b) / times.length;
+    const max = Math.max(...times);
+    const min = Math.min(...times);
+    const diff = max - min;
+    
+    const variance = times.map(t => Math.pow(t - avg, 2)).reduce((a,b) => a+b) / times.length;
+    const stdDev = Math.sqrt(variance);
+    
+    const cv = (stdDev / avg) * 100; 
+    
+    // ---  ---
+    let jitterEvaluation = '';
+    let cvComment = ''; 
+    let colorClass = '';
+    let detailedAction = '';
+
+    if(cv > 10) {
+        jitterEvaluation = `ОТЛИЧНО! Высокая вариативность Floating-point unit (Неровный фон)`;
+        cvComment = `Процент хаоса выше 10% — Хороший результат.`;
+        colorClass = 'success';
+        detailedAction = `✅ Ваши настройки создают убедительный хаос в таймингах.`;
+    } else if (cv > 5) {
+        jitterEvaluation = `НЕДОСТАТОЧНО! Умеренная вариативность Floating-point unit.`;
+        cvComment = `Хаос умеренный (5-10%). Антифрод может отбросить этот Jitter как незначительный.`;
+        colorClass = 'warning';
+        detailedAction = `⚠️ ТРЕБУЕТСЯ УЛУЧШЕНИЕ! Для надежности увеличьте Jitter (Цель: > 10%).`;
+    } else {
+        jitterEvaluation = `КРИТИЧНО! Низкая вариативность Floating-point unit (Слишком ровный фон)`;
+        cvComment = `Хаос критически низок (< 5%). Система считается слишком стабильной.`;
+        colorClass = 'critical';
+        detailedAction = `❌ КРИТИЧЕСКИ ВАЖНО! увеличить Jitter! Слишком низкий коэффициент вариаций.`;
+    }
+    
+    // ---  ---
+    output.innerHTML += `
+    <section class="summary-details">
+        <h4>📊 Сводный анализ результатов.</h4>
+        <p>Среднее время: <b>${avg.toFixed(1)} мс</b></p>
+        <p>Разброс (Min - Max): <b>${min.toFixed(1)} мс</b> — <b>${max.toFixed(1)} мс</b> (Разница: <b>${diff.toFixed(1)} мс</b>)</p>
+        <p>Стандартное отклонение: <b>${stdDev.toFixed(1)} мс</b></p>
+        <hr/>
+        
+        <div class="evaluation-box ${colorClass}">
+            <p style="font-size: 1.1em; margin-bottom: 5px;">
+                <b>Оценка Jitter:</b> ${jitterEvaluation}
+            </p>
+            
+            <p>
+                <span class="cv-value ${colorClass}">Диапазон: ${cv.toFixed(1)}%</span> 
+                <span>Комментарий: ${cvComment}</span>
+            </p>
+        </div>
+    </section>
+    
+    <footer style="margin-top: 20px;">
+        <div>${detailedAction}</div>
+    </footer>
+    `;
+    
+    // ---  ---
+    output.innerHTML += `
+    <section>
+        <h4>📋 Коэффициенты вариаций</h4>
+        <table>
+            <tr>
+                <th>Сценарий</th>
+                <th>Диапазон</th>
+                <th>Вывод</th>
+            </tr>
+            <tr class="critical">
+                <td>❌ Критично</td>
+                <td>1.0% – 5.0%</td>
+                <td>Критически низкий Jitter (система слишком стабильна, слишком ровный фон)</td>
+            </tr>
+            <tr class="warning">
+                <td>⚠️ Требует улучшения</td>
+                <td>5.0% – 10.0%</td>
+                <td>Недостаточный Jitter (нужно больше хаоса)</td>
+            </tr>
+            <tr class="success">
+                <td>✅ Отлично</td>
+                <td>10.0% – 20.0%</td>
+                <td>Высокий Jitter (хаос/неровность)</td>
+            </tr>
+        </table>
+    </section>
+    `;
+}
+</script>
+
+</body>
+</html>
